@@ -11,6 +11,10 @@ import java.math.BigDecimal;
 
 public class AppTest {
 
+    /**
+     * This test uses the "small" dir as the input and output to valid the data
+     * It should cover most of the code in regular case
+     */
     @Test
     public void testAppOutput() throws IOException {
         ClassLoader classLoader = this.getClass().getClassLoader();
