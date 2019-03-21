@@ -8,7 +8,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,16 +19,25 @@ import java.util.TreeMap;
  * The assumption is one facility will only come from one partner bank.
  */
 public class FacilityRepository {
+
     final Map<Integer, Facility> facilities = new HashMap<>();
+
     final SortedMap<BigDecimal, List<Facility>> cheapestFacilitiesGroup = new TreeMap<>();
 
-    public FacilityRepository(File facilityFile, File covenantFile) throws IOException {
+    // This is needed when we add new facilities, to make sure the previous bank covenants will apply
+    final Map<Integer, Covenants> bankOnlyCovenants = new HashMap<>();
+    final Map<Integer, List<Facility>> bankToFacilities = new HashMap<>();
 
+    public FacilityRepository(File facilityFile, File covenantFile) throws IOException {
+        addFacilities(facilityFile);
+        addCovenants(covenantFile);
+    }
+
+    public void addFacilities(File facilityFile) throws IOException {
         CSVReader reader = new CSVReaderBuilder(new FileReader(facilityFile))
                 .withSkipLines(1)
                 .build();
         String[] line;
-        Map<Integer, List<Integer>> bankToFacilities = new HashMap<>();
         while ((line = reader.readNext()) != null) {
             Facility facility = new Facility(
                     Integer.parseInt(line[2]),
@@ -38,36 +46,49 @@ public class FacilityRepository {
                     new BigDecimal(line[1])
             );
             facilities.put(facility.getId(), facility);
+            if (bankOnlyCovenants.containsKey(facility.getBankId())) {
+                Covenants bankCovenants = bankOnlyCovenants.get(facility.getBankId());
+                facility.getCovenants().add(bankCovenants);
+            }
 
             cheapestFacilitiesGroup.putIfAbsent(facility.getInterestRate(), new ArrayList<>());
             cheapestFacilitiesGroup.get(facility.getInterestRate()).add(facility);
 
             bankToFacilities.putIfAbsent(facility.getBankId(), new ArrayList<>());
-            bankToFacilities.get(facility.getBankId()).add(facility.getId());
+            bankToFacilities.get(facility.getBankId()).add(facility);
         }
         reader.close();
+    }
 
-        reader = new CSVReaderBuilder(new FileReader(covenantFile)).withSkipLines(1).build();
+    public void addCovenants(File covenantFile) throws IOException {
+        CSVReader reader = new CSVReaderBuilder(new FileReader(covenantFile)).withSkipLines(1).build();
+        String[] line;
         while ((line = reader.readNext()) != null) {
-             List<Integer> ids;
-             if (line[0].isEmpty()) {
-                 int bankId = Integer.parseInt(line[2]);
-                 ids = bankToFacilities.get(bankId);
-             } else {
-                 ids = Collections.singletonList(Integer.parseInt(line[0]));
-             }
-             for (int id : ids) {
-                 Facility facility = facilities.get(id);
-                 if (!line[1].isEmpty()) {
-                     facility.setMaxDefaultLikelihood(new BigDecimal(line[1]));
-                 }
-                 if (!line[3].isEmpty()) {
-                     facility.addBannedState(line[3]);
-                 }
-             }
+            if (line[0].isEmpty()) {
+                int bankId = Integer.parseInt(line[2]);
+                bankOnlyCovenants.putIfAbsent(bankId, new Covenants());
+                Covenants covenants = bankOnlyCovenants.get(bankId);
+                if (!line[1].isEmpty()) {
+                    covenants.setMaxDefaultLikelihood(new BigDecimal(line[1]));
+                }
+                if (!line[3].isEmpty()) {
+                    covenants.addBannedState(line[3]);
+                }
+                for (Facility facility : bankToFacilities.get(bankId)) {
+                    facility.getCovenants().add(covenants);
+                }
+            } else {
+                int id = Integer.parseInt(line[0]);
+                Covenants covenants = facilities.get(id).getCovenants();
+                if (!line[1].isEmpty()) {
+                    covenants.setMaxDefaultLikelihood(new BigDecimal(line[1]));
+                }
+                if (!line[3].isEmpty()) {
+                    covenants.addBannedState(line[3]);
+                }
+            }
         }
         reader.close();
-
     }
 
     public Facility findCheapestWithMostAmount(BigDecimal amount,
@@ -80,8 +101,7 @@ public class FacilityRepository {
                 if (facility.getAmount().compareTo(amount) < 0) {
                     break;
                 }
-                if (facility.getMaxDefaultLikelihood().compareTo(defaultLikelihood) >= 0
-                        && !facility.getBannedStates().contains(state)) {
+                if (facility.getCovenants().isSatisfied(defaultLikelihood, state)) {
                     return facility;
                 }
             }
