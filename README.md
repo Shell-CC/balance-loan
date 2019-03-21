@@ -33,5 +33,14 @@ or there is a needs to optimize the time efficiency of the new filter logic.
 Assume these facilities become available by the finance team emailing your team and describing the addition with a new set of CSVs.  
 Both new `facilities.csv` files and new `covenants.csv` files can be added by 
 `FacilityRepository.addFacilities(File facilityFile)` and `FacilityRepository.addCovenants(File covenantFile)` in time.
-There is no other dependency between two of them. 
+There is no other dependency between two of them.
+
+4. Your solution most likely simulates the streaming process by directly calling a method in your code 
+to process the loans inside of a for loop. What would a REST API look like for this same service? 
+Stakeholders using the API will need, at a minimum, to be able to request a loan be assigned to a facility, 
+and read the funding status of a loan, as well as query the capacities remaining in facilities.  
+Add the following APIs, details in code `StakeholderApi.java`
+- `assignLoan` to request a loan be assigned to a facility.
+- `getFundingStatus` to read the funding status of a loan.
+- `getCapacity` to query the capacities remaining in facilities.
 

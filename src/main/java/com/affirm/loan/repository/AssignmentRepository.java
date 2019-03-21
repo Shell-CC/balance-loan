@@ -41,13 +41,13 @@ public class AssignmentRepository {
         loanToFacility.add(new Pair<>(loanId, facilityId));
     }
 
-    public int get(int loanId) {
+    public Integer get(int loanId) {
         for (Pair<Integer, Integer> pair : loanToFacility) {
             if (pair.getKey() == loanId) {
                 return pair.getValue();
             }
         }
-        return -1;
+        return null;
     }
 
     public void persist(File file) throws IOException {

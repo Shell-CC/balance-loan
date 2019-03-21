@@ -108,4 +108,8 @@ public class FacilityRepository {
         }
         return null;
     }
+
+    public Facility get(int facilityId) {
+        return facilities.get(facilityId);
+    }
 }
